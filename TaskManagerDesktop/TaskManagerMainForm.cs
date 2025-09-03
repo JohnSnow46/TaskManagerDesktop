@@ -16,21 +16,33 @@ namespace TaskManagerDesktop
         private Button btnAdd;
         private Button btnEdit;
         private Button btnDelete;
+        private Button btnToggleComplete;
+        private Button btnTestSelection;
         private Label lblTitle;
         private Label lblDescription;
         private Label lblCategory;
         private Label lblPriority;
 
+        // Manager zadań
+        private TaskManager taskManager;
+        private Task selectedTask;
+
         public TaskManagerMainForm()
         {
+            // Inicjalizacja task managera
+            taskManager = new TaskManager();
+            taskManager.TasksChanged += TaskManager_TasksChanged;
+            selectedTask = null;
+
             SetupForm();
+            SetupEventHandlers();
         }
 
         private void SetupForm()
         {
             // Ustawienia głównego formularza
             this.Text = "Task Manager Desktop";
-            this.Size = new Size(800, 600);
+            this.Size = new Size(800, 650);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
@@ -64,7 +76,7 @@ namespace TaskManagerDesktop
             // Panel do wprowadzania danych
             Panel inputPanel = new Panel();
             inputPanel.Location = new Point(540, 20);
-            inputPanel.Size = new Size(230, 350);
+            inputPanel.Size = new Size(230, 420);
             inputPanel.BorderStyle = BorderStyle.FixedSingle;
 
             // Label i TextBox dla tytułu
@@ -145,6 +157,22 @@ namespace TaskManagerDesktop
             btnDelete.BackColor = Color.LightCoral;
             inputPanel.Controls.Add(btnDelete);
 
+            // Przycisk Toggle Complete
+            btnToggleComplete = new Button();
+            btnToggleComplete.Text = "Oznacz jako ukończone";
+            btnToggleComplete.Location = new Point(10, 340);
+            btnToggleComplete.Size = new Size(200, 25);
+            btnToggleComplete.BackColor = Color.LightYellow;
+            inputPanel.Controls.Add(btnToggleComplete);
+
+            // PRZYCISK TESTOWY
+            btnTestSelection = new Button();
+            btnTestSelection.Text = "TEST - Wybierz pierwszy";
+            btnTestSelection.Location = new Point(10, 370);
+            btnTestSelection.Size = new Size(200, 30);
+            btnTestSelection.BackColor = Color.Orange;
+            inputPanel.Controls.Add(btnTestSelection);
+
             this.Controls.Add(inputPanel);
 
             // Status bar na dole
@@ -153,6 +181,305 @@ namespace TaskManagerDesktop
             statusLabel.Text = "Gotowy";
             statusStrip.Items.Add(statusLabel);
             this.Controls.Add(statusStrip);
+        }
+
+        private void SetupEventHandlers()
+        {
+            // Event handlery dla przycisków
+            btnAdd.Click += BtnAdd_Click;
+            btnEdit.Click += BtnEdit_Click;
+            btnDelete.Click += BtnDelete_Click;
+            btnToggleComplete.Click += BtnToggleComplete_Click;
+            btnTestSelection.Click += BtnTestSelection_Click;
+
+            // Event handlery dla DataGridView
+            dgvTasks.SelectionChanged += DgvTasks_SelectionChanged;
+            dgvTasks.CellClick += DgvTasks_CellClick;
+        }
+
+        // Dodatkowy event handler dla kliknięcia komórki
+        private void DgvTasks_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0 && e.RowIndex < dgvTasks.Rows.Count)
+            {
+                dgvTasks.Rows[e.RowIndex].Selected = true;
+                DgvTasks_SelectionChanged(sender, EventArgs.Empty);
+            }
+        }
+
+        // Event handler dla zmian w task managerze
+        private void TaskManager_TasksChanged(object sender, EventArgs e)
+        {
+            RefreshTaskList();
+        }
+
+        // Odświeżanie listy zadań w DataGridView
+        private void RefreshTaskList()
+        {
+            dgvTasks.Rows.Clear();
+
+            foreach (var task in taskManager.Tasks)
+            {
+                string[] row = new string[]
+                {
+                    task.Title,
+                    task.Description,
+                    task.Category.ToString(),
+                    task.Priority.ToString(),
+                    task.IsCompleted ? "Tak" : "Nie"
+                };
+
+                int rowIndex = dgvTasks.Rows.Add(row);
+                dgvTasks.Rows[rowIndex].Tag = task; // Przechowujemy referencję do zadania
+
+                // Kolorowanie ukończonych zadań
+                if (task.IsCompleted)
+                {
+                    dgvTasks.Rows[rowIndex].DefaultCellStyle.BackColor = Color.LightGray;
+                    dgvTasks.Rows[rowIndex].DefaultCellStyle.ForeColor = Color.DarkGray;
+                }
+            }
+
+            // WYMUŚ SELEKCJĘ PIERWSZEGO WIERSZA JEŚLI ISTNIEJE
+            if (dgvTasks.Rows.Count > 0)
+            {
+                dgvTasks.ClearSelection();
+                dgvTasks.Rows[0].Selected = true;
+                dgvTasks.CurrentCell = dgvTasks.Rows[0].Cells[0];
+                // Ręcznie wywołaj event selection
+                DgvTasks_SelectionChanged(dgvTasks, EventArgs.Empty);
+            }
+            else
+            {
+                // Jeśli nie ma zadań, wyczyść formularz
+                selectedTask = null;
+                ClearForm();
+                btnEdit.Enabled = false;
+                btnDelete.Enabled = false;
+                btnToggleComplete.Enabled = false;
+            }
+
+            UpdateStatusBar();
+        }
+
+        // Aktualizacja paska statusu
+        private void UpdateStatusBar()
+        {
+            var statusStrip = this.Controls.OfType<StatusStrip>().FirstOrDefault();
+            if (statusStrip != null && statusStrip.Items.Count > 0)
+            {
+                var statusLabel = statusStrip.Items[0] as ToolStripStatusLabel;
+                if (statusLabel != null)
+                {
+                    statusLabel.Text = $"Zadań: {taskManager.TaskCount} | " +
+                                     $"Ukończonych: {taskManager.CompletedTaskCount} | " +
+                                     $"Do zrobienia: {taskManager.PendingTaskCount}";
+                }
+            }
+        }
+
+        // Event handler dla wyboru zadania
+        private void DgvTasks_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dgvTasks.SelectedRows.Count > 0)
+            {
+                selectedTask = dgvTasks.SelectedRows[0].Tag as Task;
+                if (selectedTask != null)
+                {
+                    LoadTaskToForm(selectedTask);
+                    btnEdit.Enabled = true;
+                    btnDelete.Enabled = true;
+                    btnToggleComplete.Enabled = true;
+
+                    // Aktualizuj tekst przycisku w zależności od stanu zadania
+                    btnToggleComplete.Text = selectedTask.IsCompleted ? "Oznacz jako nieukończone" : "Oznacz jako ukończone";
+                }
+            }
+            else
+            {
+                selectedTask = null;
+                btnEdit.Enabled = false;
+                btnDelete.Enabled = false;
+                btnToggleComplete.Enabled = false;
+                btnToggleComplete.Text = "Oznacz jako ukończone";
+            }
+        }
+
+        // Ładowanie zadania do formularza
+        private void LoadTaskToForm(Task task)
+        {
+            if (task != null)
+            {
+                txtTitle.Text = task.Title;
+                txtDescription.Text = task.Description;
+                cmbCategory.SelectedIndex = (int)task.Category;
+                cmbPriority.SelectedIndex = (int)task.Priority;
+            }
+        }
+
+        // Czyszczenie formularza
+        private void ClearForm()
+        {
+            txtTitle.Clear();
+            txtDescription.Clear();
+            cmbCategory.SelectedIndex = 0;
+            cmbPriority.SelectedIndex = 1;
+        }
+
+        // Walidacja danych z formularza
+        private bool ValidateForm()
+        {
+            if (string.IsNullOrWhiteSpace(txtTitle.Text))
+            {
+                MessageBox.Show("Tytuł zadania nie może być pusty!", "Błąd walidacji",
+                              MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtTitle.Focus();
+                return false;
+            }
+            return true;
+        }
+
+        // Event handler dla przycisku Dodaj
+        private void BtnAdd_Click(object sender, EventArgs e)
+        {
+            if (!ValidateForm()) return;
+
+            try
+            {
+                taskManager.AddTask(
+                    txtTitle.Text,
+                    txtDescription.Text,
+                    (TaskCategory)cmbCategory.SelectedIndex,
+                    (TaskPriority)cmbPriority.SelectedIndex
+                );
+
+                ClearForm();
+                MessageBox.Show("Zadanie zostało dodane!", "Sukces",
+                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Błąd podczas dodawania zadania: {ex.Message}", "Błąd",
+                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Event handler dla przycisku Edytuj
+        private void BtnEdit_Click(object sender, EventArgs e)
+        {
+            if (selectedTask == null)
+            {
+                MessageBox.Show("Wybierz zadanie do edycji!", "Informacja",
+                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (!ValidateForm()) return;
+
+            try
+            {
+                taskManager.EditTask(
+                    selectedTask.Id,
+                    txtTitle.Text,
+                    txtDescription.Text,
+                    (TaskCategory)cmbCategory.SelectedIndex,
+                    (TaskPriority)cmbPriority.SelectedIndex
+                );
+
+                MessageBox.Show("Zadanie zostało zaktualizowane!", "Sukces",
+                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Błąd podczas edycji zadania: {ex.Message}", "Błąd",
+                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Event handler dla przycisku Usuń
+        private void BtnDelete_Click(object sender, EventArgs e)
+        {
+            if (selectedTask == null)
+            {
+                MessageBox.Show("Wybierz zadanie do usunięcia!", "Informacja",
+                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"Czy na pewno chcesz usunąć zadanie '{selectedTask.Title}'?",
+                "Potwierdzenie",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question
+            );
+
+            if (result == DialogResult.Yes)
+            {
+                taskManager.RemoveTask(selectedTask.Id);
+                selectedTask = null; // Wyczyść wybranego taska
+                ClearForm();
+                MessageBox.Show("Zadanie zostało usunięte!", "Sukces",
+                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        // Event handler dla przycisku Toggle Complete
+        private void BtnToggleComplete_Click(object sender, EventArgs e)
+        {
+            if (selectedTask == null)
+            {
+                MessageBox.Show("Wybierz zadanie!", "Informacja",
+                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            taskManager.ToggleTaskCompletion(selectedTask.Id);
+
+            string status = selectedTask.IsCompleted ? "ukończone" : "nieukończone";
+            MessageBox.Show($"Zadanie oznaczone jako {status}!", "Sukces",
+                          MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // METODA TESTOWA
+        private void BtnTestSelection_Click(object sender, EventArgs e)
+        {
+            if (dgvTasks.Rows.Count > 0)
+            {
+                // Wybierz pierwszy wiersz
+                dgvTasks.ClearSelection();
+                dgvTasks.Rows[0].Selected = true;
+                dgvTasks.CurrentCell = dgvTasks.Rows[0].Cells[0];
+
+                // Pobierz Task z Tag
+                Task testTask = dgvTasks.Rows[0].Cells[0].OwningRow.Tag as Task;
+
+                if (testTask != null)
+                {
+                    MessageBox.Show($"Znaleziony task: '{testTask.Title}'");
+
+                    // Ładuj ręcznie do formularza
+                    txtTitle.Text = testTask.Title;
+                    txtDescription.Text = testTask.Description;
+                    cmbCategory.SelectedIndex = (int)testTask.Category;
+                    cmbPriority.SelectedIndex = (int)testTask.Priority;
+
+                    // Włącz przyciski
+                    btnEdit.Enabled = true;
+                    btnDelete.Enabled = true;
+                    btnToggleComplete.Enabled = true;
+                    selectedTask = testTask;
+
+                    MessageBox.Show("Task załadowany ręcznie! Teraz spróbuj Edytuj/Usuń");
+                }
+                else
+                {
+                    MessageBox.Show("Tag wiersza jest NULL!");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Brak zadań w liście!");
+            }
         }
     }
 }

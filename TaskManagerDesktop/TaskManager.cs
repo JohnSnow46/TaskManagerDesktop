@@ -153,5 +153,17 @@ namespace TaskManagerDesktop
         {
             nextId = Math.Max(nextId, id + 1);
         }
+
+        // Metoda do wczytywania zadań z pliku (bez wywoływania eventu TasksChanged)
+        internal void LoadTasksFromFile(List<Task> tasksToLoad)
+        {
+            tasks.Clear();
+            tasks.AddRange(tasksToLoad);
+            if (tasks.Count > 0)
+            {
+                int maxId = tasks.Max(t => t.Id);
+                SetNextId(maxId);
+            }
+        }
     }
 }
