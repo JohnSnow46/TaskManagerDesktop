@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -17,7 +19,6 @@ namespace TaskManagerDesktop
         private Button btnEdit;
         private Button btnDelete;
         private Button btnToggleComplete;
-        private Button btnTestSelection;
         private Label lblTitle;
         private Label lblDescription;
         private Label lblCategory;
@@ -26,9 +27,13 @@ namespace TaskManagerDesktop
         // Manager zadań
         private TaskManager taskManager;
         private Task selectedTask;
+        private string dataFilePath;
 
         public TaskManagerMainForm()
         {
+            // Ścieżka do pliku z danymi
+            dataFilePath = Path.Combine(Application.StartupPath, "tasks.dat");
+
             // Inicjalizacja task managera
             taskManager = new TaskManager();
             taskManager.TasksChanged += TaskManager_TasksChanged;
@@ -36,6 +41,9 @@ namespace TaskManagerDesktop
 
             SetupForm();
             SetupEventHandlers();
+
+            // Wczytaj dane z pliku
+            LoadTasksFromFile();
         }
 
         private void SetupForm()
@@ -76,7 +84,7 @@ namespace TaskManagerDesktop
             // Panel do wprowadzania danych
             Panel inputPanel = new Panel();
             inputPanel.Location = new Point(540, 20);
-            inputPanel.Size = new Size(230, 420);
+            inputPanel.Size = new Size(230, 380);
             inputPanel.BorderStyle = BorderStyle.FixedSingle;
 
             // Label i TextBox dla tytułu
@@ -148,6 +156,7 @@ namespace TaskManagerDesktop
             btnEdit.Location = new Point(80, 300);
             btnEdit.Size = new Size(60, 30);
             btnEdit.BackColor = Color.LightBlue;
+            btnEdit.Enabled = false;
             inputPanel.Controls.Add(btnEdit);
 
             btnDelete = new Button();
@@ -155,6 +164,7 @@ namespace TaskManagerDesktop
             btnDelete.Location = new Point(150, 300);
             btnDelete.Size = new Size(60, 30);
             btnDelete.BackColor = Color.LightCoral;
+            btnDelete.Enabled = false;
             inputPanel.Controls.Add(btnDelete);
 
             // Przycisk Toggle Complete
@@ -163,15 +173,8 @@ namespace TaskManagerDesktop
             btnToggleComplete.Location = new Point(10, 340);
             btnToggleComplete.Size = new Size(200, 25);
             btnToggleComplete.BackColor = Color.LightYellow;
+            btnToggleComplete.Enabled = false;
             inputPanel.Controls.Add(btnToggleComplete);
-
-            // PRZYCISK TESTOWY
-            btnTestSelection = new Button();
-            btnTestSelection.Text = "TEST - Wybierz pierwszy";
-            btnTestSelection.Location = new Point(10, 370);
-            btnTestSelection.Size = new Size(200, 30);
-            btnTestSelection.BackColor = Color.Orange;
-            inputPanel.Controls.Add(btnTestSelection);
 
             this.Controls.Add(inputPanel);
 
@@ -190,11 +193,13 @@ namespace TaskManagerDesktop
             btnEdit.Click += BtnEdit_Click;
             btnDelete.Click += BtnDelete_Click;
             btnToggleComplete.Click += BtnToggleComplete_Click;
-            btnTestSelection.Click += BtnTestSelection_Click;
 
             // Event handlery dla DataGridView
             dgvTasks.SelectionChanged += DgvTasks_SelectionChanged;
             dgvTasks.CellClick += DgvTasks_CellClick;
+
+            // Event handler dla zamknięcia aplikacji
+            this.FormClosing += TaskManagerMainForm_FormClosing;
         }
 
         // Dodatkowy event handler dla kliknięcia komórki
@@ -211,6 +216,7 @@ namespace TaskManagerDesktop
         private void TaskManager_TasksChanged(object sender, EventArgs e)
         {
             RefreshTaskList();
+            SaveTasksToFile(); // Automatyczny zapis przy każdej zmianie
         }
 
         // Odświeżanie listy zadań w DataGridView
@@ -440,45 +446,143 @@ namespace TaskManagerDesktop
                           MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        // METODA TESTOWA
-        private void BtnTestSelection_Click(object sender, EventArgs e)
+        // ===== OBSŁUGA PLIKÓW =====
+
+        // Zapis zadań do pliku (prosty format)
+        private void SaveTasksToFile()
         {
-            if (dgvTasks.Rows.Count > 0)
+            try
             {
-                // Wybierz pierwszy wiersz
-                dgvTasks.ClearSelection();
-                dgvTasks.Rows[0].Selected = true;
-                dgvTasks.CurrentCell = dgvTasks.Rows[0].Cells[0];
-
-                // Pobierz Task z Tag
-                Task testTask = dgvTasks.Rows[0].Cells[0].OwningRow.Tag as Task;
-
-                if (testTask != null)
+                using (StreamWriter writer = new StreamWriter(dataFilePath))
                 {
-                    MessageBox.Show($"Znaleziony task: '{testTask.Title}'");
+                    writer.WriteLine($"# Task Manager Data - {DateTime.Now}");
 
-                    // Ładuj ręcznie do formularza
-                    txtTitle.Text = testTask.Title;
-                    txtDescription.Text = testTask.Description;
-                    cmbCategory.SelectedIndex = (int)testTask.Category;
-                    cmbPriority.SelectedIndex = (int)testTask.Priority;
+                    foreach (var task in taskManager.Tasks)
+                    {
+                        // Format: ID|Title|Description|Category|Priority|IsCompleted|CreatedDate|CompletedDate
+                        string line = $"{task.Id}|{EscapeString(task.Title)}|{EscapeString(task.Description)}|" +
+                                    $"{(int)task.Category}|{(int)task.Priority}|{task.IsCompleted}|" +
+                                    $"{task.CreatedDate.ToBinary()}|{(task.CompletedDate?.ToBinary().ToString() ?? "null")}";
+                        writer.WriteLine(line);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Błąd podczas zapisywania do pliku: {ex.Message}", "Błąd zapisu",
+                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
 
-                    // Włącz przyciski
-                    btnEdit.Enabled = true;
-                    btnDelete.Enabled = true;
-                    btnToggleComplete.Enabled = true;
-                    selectedTask = testTask;
+        // Wczytywanie zadań z pliku
+        private void LoadTasksFromFile()
+        {
+            try
+            {
+                if (File.Exists(dataFilePath))
+                {
+                    var tasksToLoad = new List<Task>();
+                    string[] lines = File.ReadAllLines(dataFilePath);
 
-                    MessageBox.Show("Task załadowany ręcznie! Teraz spróbuj Edytuj/Usuń");
+                    foreach (string line in lines)
+                    {
+                        // Pomiń komentarze i puste linie
+                        if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                            continue;
+
+                        try
+                        {
+                            string[] parts = line.Split('|');
+                            if (parts.Length >= 8)
+                            {
+                                var task = new Task();
+                                task.Id = int.Parse(parts[0]);
+                                task.Title = UnescapeString(parts[1]);
+                                task.Description = UnescapeString(parts[2]);
+                                task.Category = (TaskCategory)int.Parse(parts[3]);
+                                task.Priority = (TaskPriority)int.Parse(parts[4]);
+                                task.IsCompleted = bool.Parse(parts[5]);
+                                task.CreatedDate = DateTime.FromBinary(long.Parse(parts[6]));
+
+                                if (parts[7] != "null")
+                                    task.CompletedDate = DateTime.FromBinary(long.Parse(parts[7]));
+
+                                tasksToLoad.Add(task);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Pomiń uszkodzone linie
+                            System.Diagnostics.Debug.WriteLine($"Błąd parsowania linii: {line} - {ex.Message}");
+                        }
+                    }
+
+                    if (tasksToLoad.Count > 0)
+                    {
+                        // Wczytaj zadania do managera
+                        taskManager.LoadTasksFromFile(tasksToLoad);
+
+                        // Ręcznie odśwież listę
+                        RefreshTaskList();
+
+                        UpdateStatusInformation($"Wczytano {tasksToLoad.Count} zadań z pliku");
+                    }
+                    else
+                    {
+                        UpdateStatusInformation("Brak poprawnych danych w pliku");
+                    }
                 }
                 else
                 {
-                    MessageBox.Show("Tag wiersza jest NULL!");
+                    UpdateStatusInformation("Brak zapisanych zadań - rozpocznij od nowa");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Brak zadań w liście!");
+                MessageBox.Show($"Błąd podczas wczytywania pliku: {ex.Message}\n\nSpróbuj usunąć plik tasks.dat i uruchomić ponownie.", "Błąd wczytywania",
+                              MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                UpdateStatusInformation("Błąd wczytywania danych");
+            }
+        }
+
+        // Event handler dla zamykania aplikacji
+        private void TaskManagerMainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            SaveTasksToFile(); // Ostatni zapis przed zamknięciem
+        }
+
+        // Pomocnicze metody do obsługi pipe'ów w stringach
+        private string EscapeString(string input)
+        {
+            return input?.Replace("|", "&#124;").Replace("\r\n", "\\n").Replace("\n", "\\n") ?? "";
+        }
+
+        private string UnescapeString(string input)
+        {
+            return input?.Replace("&#124;", "|").Replace("\\n", "\n") ?? "";
+        }
+
+        // Pomocnicza metoda do aktualizacji informacji w pasku statusu
+        private void UpdateStatusInformation(string message)
+        {
+            var statusStrip = this.Controls.OfType<StatusStrip>().FirstOrDefault();
+            if (statusStrip != null && statusStrip.Items.Count > 0)
+            {
+                var statusLabel = statusStrip.Items[0] as ToolStripStatusLabel;
+                if (statusLabel != null)
+                {
+                    statusLabel.Text = message;
+
+                    // Przywróć normalny status po 3 sekundach
+                    var timer = new Timer();
+                    timer.Interval = 3000;
+                    timer.Tick += (s, args) => {
+                        UpdateStatusBar();
+                        timer.Stop();
+                        timer.Dispose();
+                    };
+                    timer.Start();
+                }
             }
         }
     }
