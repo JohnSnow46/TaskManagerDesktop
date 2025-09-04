@@ -27,7 +27,7 @@ namespace TaskManagerDesktop
 
         public Task(string title, string description, TaskCategory category, TaskPriority priority)
         {
-            Id = 0; // Będzie ustawiane przez TaskManager
+            Id = 0;
             Title = title ?? string.Empty;
             Description = description ?? string.Empty;
             Category = category;

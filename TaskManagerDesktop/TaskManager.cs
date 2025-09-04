@@ -15,16 +15,13 @@ namespace TaskManagerDesktop
             nextId = 1;
         }
 
-        // Event do powiadamiania o zmianach
         public event EventHandler TasksChanged;
 
-        // Właściwości
-        public List<Task> Tasks => tasks.ToList(); // Zwraca kopię listy
+        public List<Task> Tasks => tasks.ToList();
         public int TaskCount => tasks.Count;
         public int CompletedTaskCount => tasks.Count(t => t.IsCompleted);
         public int PendingTaskCount => tasks.Count(t => !t.IsCompleted);
 
-        // Dodawanie zadania
         public Task AddTask(string title, string description, TaskCategory category, TaskPriority priority)
         {
             if (string.IsNullOrWhiteSpace(title))
@@ -40,7 +37,6 @@ namespace TaskManagerDesktop
             return task;
         }
 
-        // Edytowanie zadania
         public bool EditTask(int id, string title, string description, TaskCategory category, TaskPriority priority)
         {
             var task = GetTaskById(id);
@@ -59,7 +55,6 @@ namespace TaskManagerDesktop
             return true;
         }
 
-        // Usuwanie zadania
         public bool RemoveTask(int id)
         {
             var task = GetTaskById(id);
@@ -71,7 +66,6 @@ namespace TaskManagerDesktop
             return true;
         }
 
-        // Oznaczanie jako ukończone/nieukończone
         public bool ToggleTaskCompletion(int id)
         {
             var task = GetTaskById(id);
@@ -87,13 +81,11 @@ namespace TaskManagerDesktop
             return true;
         }
 
-        // Pobieranie zadania po ID
         public Task GetTaskById(int id)
         {
             return tasks.FirstOrDefault(t => t.Id == id);
         }
 
-        // Filtrowanie zadań
         public List<Task> GetTasksByCategory(TaskCategory category)
         {
             return tasks.Where(t => t.Category == category).ToList();
@@ -114,7 +106,6 @@ namespace TaskManagerDesktop
             return tasks.Where(t => !t.IsCompleted).ToList();
         }
 
-        // Sortowanie zadań
         public List<Task> GetTasksSortedByPriority()
         {
             return tasks.OrderByDescending(t => (int)t.Priority).ToList();
@@ -125,7 +116,6 @@ namespace TaskManagerDesktop
             return tasks.OrderBy(t => t.CreatedDate).ToList();
         }
 
-        // Czyszczenie wszystkich zadań
         public void ClearAllTasks()
         {
             tasks.Clear();
@@ -133,7 +123,6 @@ namespace TaskManagerDesktop
             OnTasksChanged();
         }
 
-        // Czyszczenie ukończonych zadań
         public int ClearCompletedTasks()
         {
             int removedCount = tasks.RemoveAll(t => t.IsCompleted);
@@ -142,19 +131,16 @@ namespace TaskManagerDesktop
             return removedCount;
         }
 
-        // Metoda pomocnicza do wywołania eventu
         protected virtual void OnTasksChanged()
         {
             TasksChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        // Ustawianie następnego ID (przydatne przy wczytywaniu z pliku)
         internal void SetNextId(int id)
         {
             nextId = Math.Max(nextId, id + 1);
         }
 
-        // Metoda do wczytywania zadań z pliku (bez wywoływania eventu TasksChanged)
         internal void LoadTasksFromFile(List<Task> tasksToLoad)
         {
             tasks.Clear();
