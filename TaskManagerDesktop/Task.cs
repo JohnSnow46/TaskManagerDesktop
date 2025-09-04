@@ -18,8 +18,8 @@ namespace TaskManagerDesktop
             Id = 0;
             Title = string.Empty;
             Description = string.Empty;
-            Category = TaskCategory.Inne;
-            Priority = TaskPriority.Sredni;
+            Category = TaskCategory.Other;
+            Priority = TaskPriority.Medium;
             IsCompleted = false;
             CreatedDate = DateTime.Now;
             CompletedDate = null;
@@ -51,23 +51,23 @@ namespace TaskManagerDesktop
 
         public override string ToString()
         {
-            return $"{Title} ({Category}) - {(IsCompleted ? "Ukończone" : "Do zrobienia")}";
+            return $"{Title} ({Category}) - {(IsCompleted ? "Finished" : "To do")}";
         }
     }
 
     public enum TaskCategory
     {
-        Praca,
-        Dom,
-        Zakupy,
-        Inne
+        Work,
+        Home,
+        Shopping,
+        Other
     }
 
     public enum TaskPriority
     {
-        Niski,
-        Sredni,
-        Wysoki,
-        Krytyczny
+        Low,
+        Medium,
+        High,
+        Critical
     }
 }

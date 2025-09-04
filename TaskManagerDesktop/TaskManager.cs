@@ -25,7 +25,7 @@ namespace TaskManagerDesktop
         public Task AddTask(string title, string description, TaskCategory category, TaskPriority priority)
         {
             if (string.IsNullOrWhiteSpace(title))
-                throw new ArgumentException("Tytuł zadania nie może być pusty.", nameof(title));
+                throw new ArgumentException("Title cannot be empty.", nameof(title));
 
             var task = new Task(title.Trim(), description?.Trim() ?? "", category, priority)
             {
@@ -44,7 +44,7 @@ namespace TaskManagerDesktop
                 return false;
 
             if (string.IsNullOrWhiteSpace(title))
-                throw new ArgumentException("Tytuł zadania nie może być pusty.", nameof(title));
+                throw new ArgumentException("Title cannot be empty.", nameof(title));
 
             task.Title = title.Trim();
             task.Description = description?.Trim() ?? "";
