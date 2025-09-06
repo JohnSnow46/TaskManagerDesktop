@@ -52,6 +52,16 @@ namespace TaskManagerDesktop
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
+            // Ikona w pasku tytułowym
+            try
+            {
+                this.Icon = new Icon("taskIcon.ico");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Nie można załadować ikony: {ex.Message}\nScieżka: {Environment.CurrentDirectory}");
+            }
+
             // DataGridView for tasks
             dgvTasks = new DataGridView();
             dgvTasks.Location = new Point(20, 20);
@@ -571,6 +581,20 @@ namespace TaskManagerDesktop
                     timer.Start();
                 }
             }
+        }
+
+        private void InitializeComponent()
+        {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TaskManagerMainForm));
+            this.SuspendLayout();
+            // 
+            // TaskManagerMainForm
+            // 
+            this.ClientSize = new System.Drawing.Size(284, 261);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.Name = "TaskManagerMainForm";
+            this.ResumeLayout(false);
+
         }
     }
 }
