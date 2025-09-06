@@ -52,7 +52,6 @@ namespace TaskManagerDesktop
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // Ikona w pasku tytułowym
             try
             {
                 this.Icon = new Icon("taskIcon.ico");
