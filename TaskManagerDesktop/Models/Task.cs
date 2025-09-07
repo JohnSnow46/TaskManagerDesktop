@@ -1,4 +1,5 @@
 ﻿using System;
+using TaskManagerDesktop.Models;
 
 namespace TaskManagerDesktop
 {
@@ -53,21 +54,5 @@ namespace TaskManagerDesktop
         {
             return $"{Title} ({Category}) - {(IsCompleted ? "Finished" : "To do")}";
         }
-    }
-
-    public enum TaskCategory
-    {
-        Work,
-        Home,
-        Shopping,
-        Other
-    }
-
-    public enum TaskPriority
-    {
-        Low,
-        Medium,
-        High,
-        Critical
     }
 }

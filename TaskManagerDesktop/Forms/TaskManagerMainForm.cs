@@ -58,7 +58,7 @@ namespace TaskManagerDesktop
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Nie można załadować ikony: {ex.Message}\nScieżka: {Environment.CurrentDirectory}");
+                MessageBox.Show($"Can't load incon file: {ex.Message}\nPath: {Environment.CurrentDirectory}");
             }
 
             // DataGridView for tasks
